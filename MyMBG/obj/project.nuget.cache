@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "KdE6R9DglNE=",
+  "dgSpecHash": "JTAR8E+HQjM=",
   "success": true,
-  "projectFilePath": "C:\\Users\\raki\\Documents\\PBT - Sistem Pencatatan Dapur MBG\\backend\\MyMBG\\MyMBG.csproj",
+  "projectFilePath": "C:\\Users\\raki\\Documents\\PBT - Sistem Pencatatan Dapur MBG\\mymbg_backend\\MyMBG\\MyMBG.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\raki\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.7\\microsoft.aspnetcore.openapi.10.0.7.nupkg.sha512",
-    "C:\\Users\\raki\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
+    "C:\\Users\\raki\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512",
+    "C:\\Users\\raki\\.nuget\\packages\\npgsql\\10.0.2\\npgsql.10.0.2.nupkg.sha512"
   ],
   "logs": []
 }
