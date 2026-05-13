@@ -119,7 +119,8 @@ public sealed class GenericCrudRepository
         foreach (var col in writable)
         {
             object? raw = payloadMap.TryGetValue(col.Name, out var val) ? val : null;
-            AddCommandParameter(cmd, col, ConvertInputValue(raw, col));
+            var convertedValue = ConvertInputValue(raw, col);
+            AddCommandParameter(cmd, col, convertedValue ?? DBNull.Value);
         }
 
         var rows = await ReadRowsAsync(cmd);
@@ -150,7 +151,8 @@ public sealed class GenericCrudRepository
         cmd.Parameters.AddWithValue("id", ConvertInputValue(id, entity.Columns.First(c => c.Name == entity.PrimaryKey)));
         foreach (var col in allowed)
         {
-            AddCommandParameter(cmd, col, ConvertInputValue(payloadMap[col.Name], col));
+            var convertedValue = ConvertInputValue(payloadMap[col.Name], col);
+            AddCommandParameter(cmd, col, convertedValue ?? DBNull.Value);
         }
 
         var rows = await ReadRowsAsync(cmd);

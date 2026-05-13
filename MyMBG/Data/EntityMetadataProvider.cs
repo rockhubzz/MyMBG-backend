@@ -13,7 +13,8 @@ public sealed class EntityMetadataProvider
         // Pivot resep ↔ bahan (ResepFormPage uses logical name "resep-bahan")
         ["resep-bahan"] = ["resep_bahan", "resep-bahan", "resepbahan"],
         ["produksi"] = ["produksi", "production", "sesi_produksi"],
-        ["distribusi"] = ["distribusi", "distribution"]
+        ["distribusi"] = ["distribusi", "distribution"],
+        ["keuangan"] = ["keuangan", "finance", "pengeluaran"]
     };
 
     private readonly NpgsqlDataSource _dataSource;
