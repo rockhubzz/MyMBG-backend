@@ -34,23 +34,45 @@ public static class AuthEndpoints
             var userId = Guid.NewGuid();
             var passwordHash = PasswordHasher.HashPassword(request.Password.Trim());
 
-            await using (var insertCommand = new NpgsqlCommand(
-                             """
-                             INSERT INTO users (id, nama, email, password_hash)
-                             VALUES (@id, @nama, @email, @passwordHash)
-                             """, connection))
+            try
             {
-                insertCommand.Parameters.AddWithValue("id", userId);
-                insertCommand.Parameters.AddWithValue("nama", request.Nama.Trim());
-                insertCommand.Parameters.AddWithValue("email", normalizedEmail);
-                insertCommand.Parameters.AddWithValue("passwordHash", passwordHash);
-                await insertCommand.ExecuteNonQueryAsync();
-            }
+                await using (var insertCommand = new NpgsqlCommand(
+                                 """
+                                 INSERT INTO users (id, nama, email, password_hash)
+                                 VALUES (@id, @nama, @email, @passwordHash)
+                                 """, connection))
+                {
+                    insertCommand.Parameters.AddWithValue("id", userId);
+                    insertCommand.Parameters.AddWithValue("nama", request.Nama.Trim());
+                    insertCommand.Parameters.AddWithValue("email", normalizedEmail);
+                    insertCommand.Parameters.AddWithValue("passwordHash", passwordHash);
+                    await insertCommand.ExecuteNonQueryAsync();
+                }
 
-            var token = TokenGenerator.CreateToken();
-            return Results.Ok(new AuthResponse(
-                token,
-                new AuthUser(userId.ToString(), request.Nama.Trim(), normalizedEmail, "Staff")));
+                var token = TokenGenerator.CreateToken();
+                
+                // Store token in database
+                await using (var tokenCommand = new NpgsqlCommand(
+                                 """
+                                 INSERT INTO tokens (user_id, token, expires_at)
+                                 VALUES (@userId, @token, NOW() + INTERVAL '7 days')
+                                 """, connection))
+                {
+                    tokenCommand.Parameters.AddWithValue("userId", userId);
+                    tokenCommand.Parameters.AddWithValue("token", token);
+                    await tokenCommand.ExecuteNonQueryAsync();
+                }
+
+                return Results.Ok(new AuthResponse(
+                    token,
+                    new AuthUser(userId.ToString(), request.Nama.Trim(), normalizedEmail, "Staff")));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(
+                    new { message = $"Registration failed: {ex.Message}" },
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
         });
 
         group.MapPost("/login", async (LoginRequest request, NpgsqlDataSource dataSource) =>
@@ -60,37 +82,62 @@ public static class AuthEndpoints
                 return Results.BadRequest(new { message = "Email dan password wajib diisi." });
             }
 
-            await using var connection = await dataSource.OpenConnectionAsync();
-            await using var command = new NpgsqlCommand(
-                """
-                SELECT id, nama, email, password_hash, role
-                FROM users
-                WHERE email = @email
-                LIMIT 1
-                """, connection);
-            command.Parameters.AddWithValue("email", request.Email.Trim().ToLowerInvariant());
-
-            await using var reader = await command.ExecuteReaderAsync();
-            if (!await reader.ReadAsync())
+            try
             {
-                return Results.Unauthorized();
+                await using var connection = await dataSource.OpenConnectionAsync();
+                await using var command = new NpgsqlCommand(
+                    """
+                    SELECT id, nama, email, password_hash, role
+                    FROM users
+                    WHERE email = @email
+                    LIMIT 1
+                    """, connection);
+                command.Parameters.AddWithValue("email", request.Email.Trim().ToLowerInvariant());
+
+                await using var reader = await command.ExecuteReaderAsync();
+                if (!await reader.ReadAsync())
+                {
+                    return Results.Unauthorized();
+                }
+
+                var userId = reader.GetGuid(0);
+                var nama = reader.GetString(1);
+                var email = reader.GetString(2);
+                var passwordHash = reader.GetString(3);
+                var role = reader.GetString(4);
+                
+                // Close reader before executing another command on same connection
+                await reader.CloseAsync();
+
+                if (!PasswordHasher.VerifyPassword(request.Password, passwordHash))
+                {
+                    return Results.Unauthorized();
+                }
+
+                var token = TokenGenerator.CreateToken();
+                
+                // Store token in database
+                await using (var tokenCommand = new NpgsqlCommand(
+                                 """
+                                 INSERT INTO tokens (user_id, token, expires_at)
+                                 VALUES (@userId, @token, NOW() + INTERVAL '7 days')
+                                 """, connection))
+                {
+                    tokenCommand.Parameters.AddWithValue("userId", userId);
+                    tokenCommand.Parameters.AddWithValue("token", token);
+                    await tokenCommand.ExecuteNonQueryAsync();
+                }
+
+                return Results.Ok(new AuthResponse(
+                    token,
+                    new AuthUser(userId.ToString(), nama, email, role)));
             }
-
-            var userId = reader.GetGuid(0);
-            var nama = reader.GetString(1);
-            var email = reader.GetString(2);
-            var passwordHash = reader.GetString(3);
-            var role = reader.GetString(4);
-
-            if (!PasswordHasher.VerifyPassword(request.Password, passwordHash))
+            catch (Exception ex)
             {
-                return Results.Unauthorized();
+                return Results.Json(
+                    new { message = $"Login failed: {ex.Message}" },
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
-
-            var token = TokenGenerator.CreateToken();
-            return Results.Ok(new AuthResponse(
-                token,
-                new AuthUser(userId.ToString(), nama, email, role)));
         });
 
         return group;

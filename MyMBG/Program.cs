@@ -1,6 +1,8 @@
 using MyMBG.Data;
 using MyMBG.Endpoints;
 using Npgsql;
+using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +24,17 @@ builder.Services.AddSingleton(
     _ => new NpgsqlDataSourceBuilder(connectionString).Build()
 );
 
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(connectionString)
+);
+
 builder.Services.AddSingleton<EntityMetadataProvider>();
 builder.Services.AddScoped<GenericCrudRepository>();
+builder.Services.AddScoped<TokenValidator>();
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(connectionString)
+);
 
 builder.Services.AddCors(options =>
 {
@@ -34,6 +45,17 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+
+    options.AddPolicy("AllowVercel",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "https://my-mbg.vercel.app/"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
 });
 
 var app = builder.Build();
@@ -47,6 +69,10 @@ app.UseCors("WebApp");
 
 await DatabaseBootstrapper.EnsureUsersTableAsync(app.Services);
 await DatabaseBootstrapper.SeedDemoUsersAsync(app.Services);
+
+// Ensure tokens table exists
+var tokenValidator = app.Services.CreateScope().ServiceProvider.GetRequiredService<TokenValidator>();
+await tokenValidator.EnsureTokensTableAsync();
 
 app.MapGet("/db/ping", async (NpgsqlDataSource dataSource) =>
 {
@@ -67,5 +93,11 @@ app.MapGet("/db/ping", async (NpgsqlDataSource dataSource) =>
 app.MapAuthEndpoints();
 app.MapCrudEndpoints();
 app.MapProduksiEndpoints();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(); // use your actual DbContext name
+    db.Database.Migrate();
+}
 
 app.Run();

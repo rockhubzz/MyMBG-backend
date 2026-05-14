@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
+using MyMBG.Data;
 using Npgsql;
 
 namespace MyMBG.Endpoints;
@@ -14,8 +15,14 @@ public static class ProduksiEndpoints
         /// Creates sesi_produksi, inserts penggunaan_bahan from resep_bahan scaled by porsi,
         /// and optionally updates status to Selesai so fn_kurangi_stok_produksi deducts stock.
         /// </summary>
-        group.MapPost("/", async (ProduksiCreateRequest body, NpgsqlDataSource dataSource) =>
+        group.MapPost("/", async (ProduksiCreateRequest body, NpgsqlDataSource dataSource, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             if (body.JumlahPorsiDiproduksi <= 0)
             {
                 return Results.BadRequest(new { message = "Jumlah porsi harus lebih dari 0." });

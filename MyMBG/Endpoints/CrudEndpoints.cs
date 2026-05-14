@@ -11,8 +11,14 @@ public static class CrudEndpoints
     {
         var group = app.MapGroup("/api/crud");
 
-        group.MapGet("/meta/entities", async (GenericCrudRepository repo) =>
+        group.MapGet("/meta/entities", async (GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             var entities = await repo.GetEntitiesAsync();
             var output = entities.Values.Select(e => new
             {
@@ -24,14 +30,26 @@ public static class CrudEndpoints
             return Results.Ok(output);
         });
 
-        group.MapGet("/meta/{entity}", async (string entity, GenericCrudRepository repo) =>
+        group.MapGet("/meta/{entity}", async (string entity, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             var metadata = await repo.GetEntityAsync(entity);
             return metadata is null ? Results.NotFound(new { message = "Entity tidak ditemukan." }) : Results.Ok(metadata);
         });
 
-        group.MapGet("/{entity}", async (string entity, int? page, int? pageSize, string? q, GenericCrudRepository repo) =>
+        group.MapGet("/{entity}", async (string entity, int? page, int? pageSize, string? q, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var result = await repo.ListAsync(entity, new ListQuery(page ?? 1, pageSize ?? 20, q));
@@ -43,8 +61,14 @@ public static class CrudEndpoints
             }
         });
 
-        group.MapGet("/{entity}/{id}", async (string entity, string id, GenericCrudRepository repo) =>
+        group.MapGet("/{entity}/{id}", async (string entity, string id, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var item = await repo.GetByIdAsync(entity, id);
@@ -56,8 +80,14 @@ public static class CrudEndpoints
             }
         });
 
-        group.MapPost("/{entity}", async (string entity, JsonElement body, GenericCrudRepository repo) =>
+        group.MapPost("/{entity}", async (string entity, JsonElement body, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var item = await repo.CreateAsync(entity, body);
@@ -75,8 +105,14 @@ public static class CrudEndpoints
             }
         });
 
-        group.MapPut("/{entity}/{id}", async (string entity, string id, JsonElement body, GenericCrudRepository repo) =>
+        group.MapPut("/{entity}/{id}", async (string entity, string id, JsonElement body, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var updated = await repo.UpdateAsync(entity, id, body);
@@ -94,8 +130,14 @@ public static class CrudEndpoints
             }
         });
 
-        group.MapDelete("/{entity}/{id}", async (string entity, string id, GenericCrudRepository repo) =>
+        group.MapDelete("/{entity}/{id}", async (string entity, string id, GenericCrudRepository repo, HttpRequest request, TokenValidator tokenValidator) =>
         {
+            var userId = await tokenValidator.ValidateTokenAsync(request);
+            if (userId == null)
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var deleted = await repo.DeleteAsync(entity, id);
